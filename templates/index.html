@@ -1,0 +1,160 @@
+{% extends 'layout.html' %}
+
+{% block content %}
+<div class="container-fluid h-100">
+    <div class="row h-100">
+        <!-- Sidebar -->
+        <div class="col-md-3 col-lg-2 p-0 bg-light d-flex flex-column" id="sidebar">
+            <div class="p-3 border-bottom">
+                <button class="btn btn-primary w-100" id="new-chat-btn">
+                    <i class="fas fa-plus"></i> New Chat
+                </button>
+            </div>
+            <div class="flex-grow-1 overflow-auto">
+                <ul id="chat-list" class="list-group list-group-flush">
+                    {% for chat in chats %}
+                    <li class="list-group-item list-group-item-action" data-chat-id="{{ chat.id }}">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="chat-title">{{ chat.title }}</span>
+                            <span class="text-muted small">{{ chat.timestamp.strftime('%b %d') }}</span>
+                        </div>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+            <div class="p-3 border-top">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div class="d-flex align-items-center">
+                        <img src="https://via.placeholder.com/40" class="rounded-circle" alt="User Avatar">
+                        <span class="ml-2">Personal account</span>
+                    </div>
+                    <a href="{{ url_for('profile') }}" class="btn btn-link btn-sm">
+                        <i class="fas fa-cog"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content Area -->
+        <div class="col-md-9 col-lg-10 p-0 d-flex flex-column" id="main-content">
+            <div id="chat-header" class="p-3 border-bottom bg-white">
+                <h4 class="mb-0" id="main-title">How can I help you?</h4>
+            </div>
+            <div id="chat-messages" class="flex-grow-1 overflow-auto p-3">
+                <!-- Placeholder or messages will appear here -->
+            </div>
+            <div id="chat-input-container" class="p-3 border-top bg-white d-none">
+                <form id="message-form" class="d-flex align-items-center">
+                    <input type="text" id="message-input" class="form-control" placeholder="Send a message..." required>
+                    <button type="submit" class="btn btn-primary ml-2">
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+<script>
+    const socket = io();
+    let currentChatId = null;
+
+    function setActiveChat(chatId) {
+        // Remove active class from all chats
+        const chatItems = document.querySelectorAll('#chat-list .list-group-item');
+        chatItems.forEach(item => item.classList.remove('active'));
+
+        // Add active class to the selected chat
+        const activeChatItem = document.querySelector(`#chat-list .list-group-item[data-chat-id="${chatId}"]`);
+        if (activeChatItem) {
+            activeChatItem.classList.add('active');
+        }
+
+        // Set the current chat ID
+        currentChatId = chatId;
+
+        // Update main title to chat title
+        document.getElementById('main-title').textContent = activeChatItem.querySelector('.chat-title').textContent;
+
+        // Show chat input container
+        document.getElementById('chat-input-container').classList.remove('d-none');
+
+        // Load chat history for the selected chat
+        fetch(`/get_chat_history/${currentChatId}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.content) {
+                    document.getElementById('chat-messages').innerHTML = '';
+                    const messages = data.content.split('\n');
+                    messages.forEach(message => {
+                        const messageElement = document.createElement('div');
+                        messageElement.textContent = message;
+                        messageElement.className = `chat-message ${message.startsWith('User:') ? 'user-message' : 'ai-message'}`;
+                        document.getElementById('chat-messages').appendChild(messageElement);
+                    });
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showNotification('Error loading chat history', true);
+            });
+    }
+
+    socket.on('connect', () => {
+        console.log('Connected to WebSocket');
+    });
+
+    socket.on('receive_message', (data) => {
+        if (data.chat_id === currentChatId) {
+            const messageElement = document.createElement('div');
+            messageElement.textContent = `AI: ${data.message}`;
+            messageElement.className = 'chat-message ai-message';
+            document.getElementById('chat-messages').appendChild(messageElement);
+        }
+    });
+
+    socket.on('chat_created', (data) => {
+        const chatList = document.getElementById('chat-list');
+        const newChatItem = document.createElement('li');
+        newChatItem.className = 'list-group-item list-group-item-action';
+        newChatItem.textContent = data.title;
+        newChatItem.dataset.chatId = data.id;
+        chatList.appendChild(newChatItem);
+        showNotification('New chat created successfully');
+    });
+
+    socket.on('error', (data) => {
+        showNotification(data.message, true);
+    });
+
+    document.getElementById('message-form').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const messageInput = document.getElementById('message-input');
+        const message = messageInput.value.trim();
+        if (message && currentChatId) {
+            socket.emit('send_message', { message: message, chat_id: currentChatId });
+            const messageElement = document.createElement('div');
+            messageElement.textContent = `You: ${message}`;
+            messageElement.className = 'chat-message user-message';
+            document.getElementById('chat-messages').appendChild(messageElement);
+            messageInput.value = '';
+        }
+    });
+
+    document.getElementById('new-chat-btn').addEventListener('click', () => {
+        const titleInput = prompt('Enter a name for your new chat:');
+        if (titleInput) {
+            socket.emit('create_chat', { title: titleInput });
+        }
+    });
+
+    document.getElementById('chat-list').addEventListener('click', (e) => {
+        if (e.target.dataset.chatId) {
+            setActiveChat(parseInt(e.target.dataset.chatId));
+        }
+    });
+</script>
+{% endblock %}

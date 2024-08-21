@@ -1,0 +1,29 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h2 class="mt-5">Welcome, {{ current_user.username }}!</h2>
+    <p>Your Chat History:</p>
+    <table class="table table-bordered">
+        <thead>
+            <tr>
+                <th>Chat Title</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for chat in chats %}
+            <tr>
+                <td>{{ chat.chat_title }}</td>
+                <td>
+                    <a href="{{ url_for('delete_chat', chat_id=chat.id) }}" class="btn btn-danger btn-sm">Delete</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <a href="{{ url_for('chat') }}" class="btn btn-primary mt-3">New Chat</a>
+</div>
+{% endblock %}

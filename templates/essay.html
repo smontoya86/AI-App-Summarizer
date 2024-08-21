@@ -1,0 +1,42 @@
+{% extends 'base.html' %}
+
+{% block title %}Essay Writer{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h2 class="text-center mb-4">Essay Writer</h2>
+
+    <form action="{{ url_for('essay') }}" method="POST">
+        <div class="form-group">
+            <label for="essay_topic">Essay Topic</label>
+            <input type="text" class="form-control" id="essay_topic" name="essay_topic" placeholder="Enter your essay topic" required>
+        </div>
+        <div class="form-group">
+            <label for="essay_body">Essay Body</label>
+            <textarea class="form-control" id="essay_body" name="essay_body" rows="6" placeholder="Start writing your essay here..." required></textarea>
+        </div>
+        <div class="text-center">
+            <button type="submit" class="btn btn-primary">Submit</button>
+        </div>
+    </form>
+
+    {% if essay %}
+    <div class="mt-5">
+        <h3>Your Generated Essay</h3>
+        <textarea class="form-control" rows="10">{{ essay }}</textarea>
+        <div class="text-center mt-3">
+            <button class="btn btn-info" onclick="copyToClipboard()">Copy to Clipboard</button>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+    function copyToClipboard() {
+        var copyText = document.querySelector("textarea.form-control");
+        copyText.select();
+        document.execCommand("copy");
+        alert("Essay copied to clipboard!");
+    }
+</script>
+{% endblock %}
